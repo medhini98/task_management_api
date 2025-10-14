@@ -1,5 +1,7 @@
-from fastapi import FastAPI 
+from fastapi import FastAPI, HTTPException, Request, status
 from datetime import datetime
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 
 app = FastAPI() #creating instance of fastapi
 
@@ -15,3 +17,52 @@ async def get_current_time():
         "current_time": current_time.strftime("%H:%M:%S"),  
         "timezone": current_time.astimezone().tzname()  
     }
+
+#### Error Handling
+"""
+Decorator - @app.exception_handler(HTTPException): Whenever an HTTPException occurs within this router, call this function instead of using the default error response - overrides the default behavior of FastAPI for that router only.
+Function runs whenever an HTTPException is raised.
+request: the incoming HTTP request (so you could log details like path or method if needed),
+exc: the exception object that was raised (it contains status_code, detail, etc.)
+JSONResponse is a FastAPI helper class that lets you send a well-formatted JSON error message.
+Here, you are:
+    - Returning an HTTP response
+    - Setting its status code to the same as the exception (e.g., 404, 400, etc.)
+    - Returning a JSON body that looks like this: {"detail": "Task not found"}
+"""
+
+@app.exception_handler(HTTPException)
+def http_exception_handler(request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": exc.detail,
+            "path": str(request.url),
+            "method": request.method,
+            "timestamp": datetime.now().isoformat(),
+        },
+    )
+
+"""
+To intercept and reformat Pydantic validation errors (at the app level) into a consistent JSON structure:
+Decorator - @app.exception_handler(RequestValidationError): Tells FastAPI to use this function whenever a validation error happens anywhere in the app
+def validation_exc_handler(request, exc): Defines the handler function that receives the request and the exception object
+status_code = 422: HTTP status 422 → Unprocessable Content, used for validation errors
+'details': exc.errors(): Gives a list of which fields failed validation (e.g. “title must be a string”)
+'path': str(request.url): Adds the request URL to make debugging easier
+'error': "Validation failed": Adds a cleaner top-level message for readability
+"""
+
+@app.exception_handler(RequestValidationError)
+def validation_exc_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        content={
+            'error': 'Validation failed',
+            'details': exc.errors(),
+            'path': str(request.url)
+        },
+    )
+
+from routers import todo   #importing router module (folder: routers/todo.py)
+app.include_router(todo.router)  #mount all /todos routes
