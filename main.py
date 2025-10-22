@@ -66,3 +66,6 @@ def validation_exc_handler(request: Request, exc: RequestValidationError):
 
 from routers import todo   #importing router module (folder: routers/todo.py)
 app.include_router(todo.router)  #mount all /todos routes
+
+from routers import lookup
+app.include_router(lookup.router)

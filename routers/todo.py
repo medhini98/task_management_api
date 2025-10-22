@@ -1,151 +1,177 @@
-from fastapi import APIRouter, HTTPException, status, Response
-from fastapi.responses import JSONResponse
-from typing import List
-from uuid import uuid4
-from datetime import datetime
-from models import Todo, TodoCreate, TodoUpdate
+# routers/todo.py
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from uuid import UUID
+from datetime import datetime, timezone
+
+from app_db.session import get_session
+from app_db import models as dbm
+from models import TaskRead, TaskCreate, TaskUpdate
 
 router = APIRouter()
 
-### Setting up in-memory DB
-todos = [
-    {
-        "id": str(uuid4()),
-        "title": "Learn FastAPI",
-        "description": "Read official FastAPI documentation.",
-        "completed": False,
-        "created_at": datetime.now(),
-    },
-    {
-        "id": str(uuid4()),
-        "title": "Build Todo API",
-        "description": "Create RESTful API for managing tasks using FastAPI.",
-        "completed": False,
-        "created_at": datetime.now(),
-    },
-    {
-        "id": str(uuid4()),
-        "title": "Implement error handling",
-        "description": "Implement proper error handling and status codes.",
-        "completed": False,
-        "created_at": datetime.now(),
-    },
-    {
-        "id": str(uuid4()),
-        "title": "Add Validation",
-        "description": "Create Pydantic models with validation.",
-        "completed": False,
-        "created_at": datetime.now(),
-    },
-    {
-        "id": str(uuid4()),
-        "title": "Write unit tests",
-        "description": "Write unit tests using pytest (minimum 80% coverage).",
-        "completed": False,
-        "created_at": datetime.now(),
-    },
-]
-
-### Implementing Helper Functions
-#### Find task by ID:
-
-def get_todo_by_id(todo_id: str):
-    for todo in todos:
-        if todo["id"] == todo_id:
-            return todo
-    return None
-
-#### Empty/whitespace only title:
-
-def is_blank(s: str | None) -> bool:
-    return s is None or s.strip() == ''
-
-### Implementing API Endpoints
-#### Creating a new task
-
-"""
-Decorator Explanation:
-1. @router.post("/todos/"): 
-- FastAPI route decorator - it registers this function as a handler for HTTP POST method and URL path /todos/
-- When a POST request to /todos/, FastAPI will call this function: create_todo(todo: TodoCreate)
-2. response_model=Todo: Whatever this function returns, serialize it into JSON using the Todo model schema. FastAPI will:
-- Validate that the returned object matches the Todo structure.
-- Automatically convert datatypes (like datetime) to JSON-friendly formats.
-- Exclude any extra fields not defined in the model.
-"""
-
-@router.post("/todos/", response_model = Todo, status_code=status.HTTP_201_CREATED)
-def create_todo(todo: TodoCreate, response: Response):
-    
-    if is_blank(todo.title):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Title cannot be empty.")
-    if any(t['title'].strip().lower() == todo.title.strip().lower() for t in todos):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Task with this title already exists.")
-    
-    new_todo = Todo(
-        id = str(uuid4()),
-        title = todo.title,
-        description = todo.description,
-        completed = todo.completed,
-        created_at = datetime.now()
+def to_task_read(t: dbm.Task) -> TaskRead:
+    # Map ORM Task -> Pydantic TaskRead
+    return TaskRead(
+        id=t.id,
+        title=t.title,
+        description=t.description,
+        status=t.status.value,
+        priority=t.priority.value,
+        created_at=t.created_at,
+        due_at=t.due_at,
+        completed_at=t.completed_at,
+        updated_at=t.updated_at,
+        created_by=t.created_by,
+        assignee_ids=[u.id for u in t.assignees],
+        tag_ids=[tag.id for tag in t.tags],
     )
-    todos.append(new_todo.model_dump())
-    response.headers["Location"] = f"/todos/{new_todo.id}"
-    return new_todo
 
-#### Retrieving all tasks
-@router.get("/todos/", response_model=List[Todo], status_code=status.HTTP_200_OK)
-def get_all_todos():
-    return todos
+#@router.get("/todos/", response_model=List[TaskRead])
+#def list_tasks(db: Session = Depends(get_session)):
+#    tasks = db.query(dbm.Task).order_by(dbm.Task.created_at.desc()).all()
+#    return [to_task_read(t) for t in tasks]
 
-#### Retrieving one task by ID:
-@router.get("/todos/{todo_id}", response_model=Todo, status_code=status.HTTP_200_OK)
-def get_todo(todo_id: str):
-    todo = get_todo_by_id(todo_id)
-    if not todo:        #if there is no task by that id
+@router.get("/todos/", response_model=List[TaskRead])
+def list_tasks(
+    status: Optional[str] = Query(None),
+    assignee_id: Optional[UUID] = Query(None),
+    tag_id: Optional[UUID] = Query(None),
+    db: Session = Depends(get_session),
+):
+    q = db.query(dbm.Task)
+    if status:
+        try:
+            q = q.filter(dbm.Task.status == dbm.TaskStatus(status))
+        except ValueError:
+            raise HTTPException(400, "Invalid status")
+    if assignee_id:
+        q = q.join(dbm.Task.assignees).filter(dbm.User.id == assignee_id)
+    if tag_id:
+        q = q.join(dbm.Task.tags).filter(dbm.Tag.id == tag_id)
+
+    tasks = q.order_by(dbm.Task.created_at.desc()).all()
+    return [to_task_read(t) for t in tasks]
+
+@router.get("/todos/{task_id}", response_model=TaskRead)
+def get_task(task_id: UUID, db: Session = Depends(get_session)):
+    t = db.get(dbm.Task, task_id)
+    if not t:
         raise HTTPException(status_code=404, detail="Task not found")
-    return todo
+    return to_task_read(t)
 
-#### Updating task:
-##### Updating specific part of task - PATCH
-@router.patch("/todos/{todo_id}", response_model=Todo, status_code=status.HTTP_200_OK) #update by ID
-def update_todo(todo_id: str, todo_data: TodoUpdate):
-    todo = get_todo_by_id(todo_id)
-    if not todo:        #if there is no task by that id
+@router.post("/todos/", response_model=TaskRead, status_code=status.HTTP_201_CREATED)
+def create_task(payload: TaskCreate, db: Session = Depends(get_session)):
+    # Validate/convert enums
+    try:
+        status_enum = dbm.TaskStatus(payload.status) if payload.status else dbm.TaskStatus.todo
+        priority_enum = dbm.TaskPriority(payload.priority) if payload.priority else dbm.TaskPriority.normal
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid status or priority")
+
+    t = dbm.Task(
+        title=payload.title,
+        description=payload.description,
+        status=status_enum,
+        priority=priority_enum,
+        due_at=payload.due_at,
+        created_by=payload.created_by,
+    )
+
+    # Assignees
+    if payload.assignee_ids:
+        users = db.query(dbm.User).filter(dbm.User.id.in_(payload.assignee_ids)).all()
+        if len(users) != len(set(payload.assignee_ids)):
+            raise HTTPException(status_code=400, detail="One or more assignee_ids are invalid")
+        t.assignees = users
+
+    # Tags
+    if payload.tag_ids:
+        tags = db.query(dbm.Tag).filter(dbm.Tag.id.in_(payload.tag_ids)).all()
+        if len(tags) != len(set(payload.tag_ids)):
+            raise HTTPException(status_code=400, detail="One or more tag_ids are invalid")
+        t.tags = tags
+
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return to_task_read(t)
+
+@router.patch("/todos/{task_id}", response_model=TaskRead)
+@router.patch("/todos/{task_id}", response_model=TaskRead)
+def patch_task(task_id: UUID, payload: TaskUpdate, db: Session = Depends(get_session)):
+    t = db.get(dbm.Task, task_id)
+    if not t:
         raise HTTPException(status_code=404, detail="Task not found")
-    if todo_data.title is not None:
-        todo["title"] = todo_data.title
-    if todo_data.description is not None:
-        todo["description"] = todo_data.description
-    if todo_data.completed is not None:
-        todo["completed"] = todo_data.completed
-    return Todo(**todo)
 
-""" For this function, user would have to enter all fields, even ones that do not require an update. 
-The above would allow requests like: {"completed": true} """
+    # simple fields
+    if payload.title is not None:
+        t.title = payload.title
+    if payload.description is not None:
+        t.description = payload.description
+    if payload.due_at is not None:
+        t.due_at = payload.due_at
 
-##### Updating entire task:
-@router.put("/todos/{todo_id}", response_model=Todo, status_code=status.HTTP_200_OK)
-def replace_todo(todo_id: str, todo_data: TodoCreate):
-    todo = get_todo_by_id(todo_id)
-    if not todo:        #if there is no task by that id
+    # status: validate enum + maintain completed_at
+    if payload.status is not None:
+        new_status = payload.status
+        # Optional synonym:
+        # if new_status == "completed":
+        #     new_status = "done"
+
+        try:
+            t.status = dbm.TaskStatus(new_status)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid status")
+
+        if t.status == dbm.TaskStatus.done:
+            if t.completed_at is None:
+                t.completed_at = datetime.now(timezone.utc)
+        else:
+            # moving out of done -> clear timestamp
+            t.completed_at = None
+
+    # priority: validate enum
+    if payload.priority is not None:
+        try:
+            t.priority = dbm.TaskPriority(payload.priority)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid priority")
+
+    # Replace assignees if provided (None = no change, [] = clear)
+    if payload.assignee_ids is not None:
+        users = (
+            db.query(dbm.User)
+              .filter(dbm.User.id.in_(payload.assignee_ids))
+              .all()
+            if payload.assignee_ids else []
+        )
+        if payload.assignee_ids and len(users) != len(set(payload.assignee_ids)):
+            raise HTTPException(status_code=400, detail="One or more assignee_ids are invalid")
+        t.assignees = users
+
+    # Replace tags if provided (None = no change, [] = clear)
+    if payload.tag_ids is not None:
+        tags = (
+            db.query(dbm.Tag)
+              .filter(dbm.Tag.id.in_(payload.tag_ids))
+              .all()
+            if payload.tag_ids else []
+        )
+        if payload.tag_ids and len(tags) != len(set(payload.tag_ids)):
+            raise HTTPException(status_code=400, detail="One or more tag_ids are invalid")
+        t.tags = tags
+
+    db.commit()
+    db.refresh(t)
+    return to_task_read(t)
+
+@router.delete("/todos/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_task(task_id: UUID, db: Session = Depends(get_session)):
+    t = db.get(dbm.Task, task_id)
+    if not t:
         raise HTTPException(status_code=404, detail="Task not found")
-    todo['title'] = todo_data.title
-    todo['description'] = todo_data.description
-    todo['completed'] = todo_data.completed
-    return Todo(**todo)
-
-#### Deleting a task:
-@router.delete("/todos/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_todo(todo_id: str):
-    todo = get_todo_by_id(todo_id)
-    if not todo:        #if there is no task by that id
-        raise HTTPException(status_code=404, detail="Task not found")
-    todos.remove(todo)
+    db.delete(t)
+    db.commit()
     return
-
-### Adding Input Validation and Error Handling
-#### Input Validation with Pydantic
-"""
-FastAPI automatically validates input data against the Pydantic models we defined. This ensures that the data meets our expected schema before it’s processed.
-"""
