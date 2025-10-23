@@ -1,53 +1,74 @@
-# Task Management API
+# Task Management API (Database-Backed)
 
-A simple yet complete **FastAPI-based Task Management API** that supports full **CRUD operations**, **input validation**, **custom error handling**, and **automated tests with 96% coverage**.  
-This project demonstrates clean architecture and best practices in API design using **FastAPI**, **Pydantic**, and **Pytest**.
+A production-ready FastAPI Task Management API built with PostgreSQL, SQLAlchemy ORM, and Alembic migrations.
+This project extends the in-memory FastAPI version into a full persistent, relational database-driven API, complete with validation, custom error handling, and Pytest-based integration tests.
 
----
+⸻
 
 ## Features
 
-- Modular structure with routers (`routers/todo.py`)  
-- CRUD operations for `/todos`  
-- Request & response validation using **Pydantic models**  
-- Custom error handlers for:
-    - `HTTPException`
-    - `RequestValidationError`
+- Modular and scalable architecture with clear separation between:
+- routers/ – FastAPI route handlers
+- app_db/ – Database, ORM models, and session handling
+- tests/ – Integration tests and fixtures
+- Full CRUD operations for /todos with persistent storage
+- Database-backed relationships:
+- Users ↔ Tasks (many-to-many via task_assignees)
+- Tasks ↔ Tags (many-to-many via task_tags)
+- Auto-managed timestamps (created_at, updated_at, completed_at)
+- Enum-based task status and priority
+- Custom validation and error responses (HTTPException, RequestValidationError)
+- Alembic-based schema migrations
+- Integrated Pytest test suite with >90% coverage
 
-- Proper HTTP status codes (200, 201, 204, 400, 404, 409, 422)  
-- Interactive API docs via **Swagger UI** & **ReDoc**  
-- Automated tests with **Pytest** — 96% coverage  
 
 ---
 
+
 ## Tech Stack
 
-| Layer | Technology |
-|:------|:------------|
-| Framework | FastAPI |
-| Data Models | Pydantic |
-| Testing | Pytest + HTTPX |
-| Language | Python 3.13 |
-| Docs | OpenAPI / Swagger UI |
-| Coverage | `pytest-cov` |
+| **Layer**     | **Technology**                 |
+|----------------|--------------------------------|
+| Framework      | FastAPI                        |
+| ORM            | SQLAlchemy                     |
+| Database       | PostgreSQL                     |
+| Migrations     | Alembic                        |
+| Validation     | Pydantic                       |
+| Testing        | Pytest + pytest-cov            |
+| Language       | Python 3.13                    |
+| Docs           | Swagger UI / ReDoc (OpenAPI)   |
 
 ---
 
 ## Project Structure
 fastapi-todo-app/
 │
-|-- main.py                 # App entry point
-|-- models.py               # Pydantic models (Todo, TodoCreate, TodoUpdate)
-|-- routers/
-│   |-- init.py
-│   |-- todo.py             # CRUD route handlers
+├── main.py                  # FastAPI entrypoint
+├── models.py                # Pydantic schemas (TaskRead, TaskCreate, etc.)
 │
-|-- tests/
-│   |-- conftest.py         # Fixtures for testing
-│   |-- test_todos.py       # Test suite (CRUD + validation + errors)
+├── app_db/
+│   ├── __init__.py
+│   ├── database.py          # SQLAlchemy engine + Base setup
+│   ├── models.py            # SQLAlchemy ORM models & relationships
+│   ├── session.py           # DB session dependency
 │
-|-- requirements.txt
-|-- .gitignore
+├── routers/
+│   ├── __init__.py
+│   ├── todo.py              # CRUD endpoints for /todos
+│   ├── lookup.py            # Endpoints for /users and /tags
+│
+├── tests/
+│   ├── conftest.py          # Test DB fixture & client setup
+│   ├── test_todos.py        # Integration tests for DB-backed API
+│
+├── alembic/                 # Auto-generated migration scripts
+│   ├── versions/
+│   ├── env.py
+│   └── alembic.ini
+│
+├── requirements.txt
+├── .env                     # Contains DATABASE_URL
+└── README.md
 
 ---
 
@@ -69,18 +90,63 @@ fastapi-todo-app/
     pip install -r requirements.txt
 ```
 
+### 4. Configure Environment
+Create a .env file in the root:
+```bash
+DATABASE_URL=postgresql+psycopg://postgres:<your_password>@localhost:5432/task_api
+```
+
+### 5. Initialize the Database
+
+Run migrations:
+```bash
+alembic upgrade head
+```
+If the database doesn’t exist yet:
+```bash
+createdb -U postgres task_api
+```
+
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|:-------|:----------|:-------------|
-| `GET` | `/` | Welcome message |
-| `GET` | `/current-time` | Get server time |
-| `GET` | `/todos/` | Retrieve all tasks |
-| `GET` | `/todos/{id}` | Retrieve a specific task |
-| `POST` | `/todos/` | Create a new task |
-| `PATCH` | `/todos/{id}` | Partially update a task |
-| `PUT` | `/todos/{id}` | Replace an existing task |
-| `DELETE` | `/todos/{id}` | Delete a task |
+| **Method** | **Endpoint**      | **Description**                                         |
+|-------------|------------------|---------------------------------------------------------|
+| GET         | `/`              | Welcome message                                         |
+| GET         | `/current-time`  | Get current server time                                 |
+| GET         | `/todos/`        | Retrieve all tasks (filter by status/assignee/tag)      |
+| GET         | `/todos/{id}`    | Retrieve a specific task                                |
+| POST        | `/todos/`        | Create a new task                                       |
+| PATCH       | `/todos/{id}`    | Partially update task (status, tags, assignees, etc.)   |
+| DELETE      | `/todos/{id}`    | Delete a task                                           |
+| GET         | `/users/`        | Retrieve all users                                      |
+| GET         | `/tags/`         | Retrieve all tags                                       |
+
+## Schema Overview
+
+Tables
+- Users: basic user info, department & role relations
+- Tasks: title, description, status, priority, timestamps, foreign keys
+- Tags: categorical labels for tasks
+- TaskAssignees: join table (Users ↔ Tasks)
+- TaskTags: join table (Tasks ↔ Tags)
+
+**Example Task (JSON)**:
+```json
+{
+  "id": "140fb6c2-a36e-4641-915c-b7a90387c8da",
+  "title": "Build auth module",
+  "description": "Implement JWT-based auth with refresh tokens.",
+  "status": "in_progress",
+  "priority": "high",
+  "created_at": "2025-10-22T16:03:20.057497+05:30",
+  "due_at": "2025-10-29T11:57:18.465135+05:30",
+  "completed_at": null,
+  "updated_at": "2025-10-22T17:27:18.465829+05:30",
+  "created_by": "71ede514-166e-48aa-8788-e2c6f9fc78d3",
+  "assignee_ids": ["71ede514-166e-48aa-8788-e2c6f9fc78d3"],
+  "tag_ids": ["92adc1de-b266-473c-a23f-6064f6ec6578"]
+}
+```
 
 ## Error Handling
 
@@ -99,72 +165,58 @@ Then open your browser at: http://127.0.0.1:8000
 Swagger UI: http://127.0.0.1:8000/docs
 
 ## Running Tests using Pytest
-Run the test suite with coverage:
+Run all tests with coverage:
 ```bash
-    PYTHONPATH=. pytest --cov=./ --cov-report=term-missing -q
+    pytest --cov=./ --cov-report=term-missing --cov-fail-under=80 -v
 ```
 
-Ran twice - Failure on first run:
-
-**Pytest Result**:
-| File Path              | Stmts | Miss | Cover | Missing Lines              |
-|-------------------------|:-----:|:----:|:------:|-----------------------------|
-| `main.py`              | 22    | 4    | 82%   | 10, 14–15, 58              |
-| `models.py`            | 17    | 0    | 100%  | —                          |
-| `routers/__init__.py`  | 0     | 0    | 100%  | —                          |
-| `routers/todo.py`      | 65    | 5    | 92%   | 115, 117, 119, 132, 143    |
-| `tests/conftest.py`    | 13    | 0    | 100%  | —                          |
-| `tests/test_todos.py`  | 66    | 3    | 95%   | 101–104                    |
-| **TOTAL**              | **183** | **12** | **93%** | —                          |
-
----
-
 **Test Summary**:
-| Result | Description |
-|:--------|:-------------|
-| ✅ 8 Passed | All CRUD and validation tests passed successfully |
-| ⚠️ 1 Failed | `test_post_422_wrong_types` – expected 422, got 201 (fixed in final version) |
-| ⚙️ 7 Warnings | Pydantic deprecation warnings for `.dict()` (expected in v2) |
-| ⏱ Duration | ~0.15 seconds |
+
+| **Metric**       | **Result**        |
+|-------------------|------------------|
+| Total tests       | 11               |
+| Passed            | 11               |
+| Failed            | 0                |
+| Coverage          | 93.05%           |
+| Duration          | ~0.6 seconds     |
 
 ---
 
-- Overall Coverage: 93%  
+## Coverage Breakdown
 
----
+| **File**              | **Coverage** |
+|------------------------|--------------|
+| main.py                | 83%          |
+| routers/todo.py        | 86%          |
+| app_db/models.py       | 100%         |
+| app_db/session.py      | 100%         |
+| tests/test_todos.py    | 100%         |
+| **Overall**            | **93%**      |
 
-- Correction Made:
-Update all models in models.py:
-From: completed: Bool To: completed: StrictBool
-
----
-
-**Coverage after correction (2nd run)**:
-
-| File Path              | Stmts | Miss | Cover | Missing Lines              |
-|-------------------------|:-----:|:----:|:------:|-----------------------------|
-| `main.py`              | 22    | 3    | 86%   | 10, 14–15                  |
-| `models.py`            | 17    | 0    | 100%  | —                          |
-| `routers/__init__.py`  | 0     | 0    | 100%  | —                          |
-| `routers/todo.py`      | 65    | 5    | 92%   | 115, 117, 119, 132, 143    |
-| `tests/conftest.py`    | 13    | 0    | 100%  | —                          |
-| `tests/test_todos.py`  | 66    | 0    | 100%  | —                          |
-| **TOTAL**              | **183** | **8** | **96%** | —                          |
-
-**Test Summary**:
-| Result | Description |
-|:--------|:-------------|
-| ✅ 9 Passed | All CRUD, validation, and error-handling tests successful |
-| ⚙️ 0 Failed | No failed tests in this run |
-| 🧩 Warnings | Pydantic `.dict()` deprecation (expected for v2) |
-| ⏱ Duration | ~0.10 seconds |
-
----
-
-> **Overall Coverage:** 96%  
-> **Status:** All functionality validated and tested successfully.
+> **Status:** All CRUD operations, validations, and DB integrations working successfully.
 
 ##### See detailed browser test results and screenshots in [API_Testing_Demo.md](API_Testing_Demo.md)
+
+## Key Behavior Validations
+
+| **Case**              | **Expected Outcome**                                      |
+|------------------------|-----------------------------------------------------------|
+| Create Task            | 201 Created with valid UUID                              |
+| Fetch Task             | Returns JSON with matching `id`                          |
+| Update Status          | Auto-stamps `completed_at` when `status = done`          |
+| Clear Assignees/Tags   | Empty arrays successfully clear M2M relations            |
+| Invalid UUID           | 422 Validation error                                     |
+| Invalid Enum           | 400 Bad Request                                          |
+| Delete Task            | 204 No Content                                           |
+
+## Notes & Design Decisions
+
+- Normalization: schema normalized up to BCNF (all non-key attributes depend on the key)
+- Enums: used for status & priority instead of booleans
+- Timestamps: timezone-aware (TIMESTAMP WITH TIME ZONE)
+- Error Handling: centralized handlers return consistent JSON shape
+- Indexes: added for faster dashboard queries (status, due_at, email)
+- Alembic Discipline: one migration per schema change
 
 ## Resources
 
