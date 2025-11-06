@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: taskapi_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: task_api
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d task_api"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    container_name: taskapi_app
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.docker
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=ap-south-1
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app:delegated
+      - ./uploaded_files:/app/uploaded_files
+    command: >
+      bash -lc "alembic upgrade head &&
+                uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+
+volumes:
+  pgdata:

@@ -1,0 +1,15 @@
+{
+  "attachment_id": "a1dea0b7-8b93-4883-9116-a7179f3f4160",
+  "key": "attachments/e607a1ae-6544-4aec-b141-93face082938/e44ea0a4502b4d609c6d06021ce3d9aa.bin",
+  "upload_url": "https://taskapi-medhini-dev.s3.amazonaws.com/",
+  "fields": {
+    "Content-Type": "string",
+    "key": "attachments/e607a1ae-6544-4aec-b141-93face082938/e44ea0a4502b4d609c6d06021ce3d9aa.bin",
+    "x-amz-algorithm": "AWS4-HMAC-SHA256",
+    "x-amz-credential": "AKIA3DPJPB6LQZ4AV4ET/20251104/ap-south-1/s3/aws4_request",
+    "x-amz-date": "20251104T190445Z",
+    "policy": "eyJleHBpcmF0aW9uIjogIjIwMjUtMTEtMDRUMTk6MTk6NDVaIiwgImNvbmRpdGlvbnMiOiBbeyJDb250ZW50LVR5cGUiOiAic3RyaW5nIn0sIHsiYnVja2V0IjogInRhc2thcGktbWVkaGluaS1kZXYifSwgeyJrZXkiOiAiYXR0YWNobWVudHMvZTYwN2ExYWUtNjU0NC00YWVjLWIxNDEtOTNmYWNlMDgyOTM4L2U0NGVhMGE0NTAyYjRkNjA5YzZkMDYwMjFjZTNkOWFhLmJpbiJ9LCB7IngtYW16LWFsZ29yaXRobSI6ICJBV1M0LUhNQUMtU0hBMjU2In0sIHsieC1hbXotY3JlZGVudGlhbCI6ICJBS0lBM0RQSlBCNkxRWjRBVjRFVC8yMDI1MTEwNC9hcC1zb3V0aC0xL3MzL2F3czRfcmVxdWVzdCJ9LCB7IngtYW16LWRhdGUiOiAiMjAyNTExMDRUMTkwNDQ1WiJ9XX0=",
+    "x-amz-signature": "746791455d09fe673f87e406f63a6be52372789c7a2e2466ae434a71852c52a4"
+  },
+  "method": "POST"
+}

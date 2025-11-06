@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+httpx
+pytest
+pytest-cov
+SQLAlchemy
+psycopg[binary]
+alembic
+python-dotenv
+boto3
+moto[all]
+python-multipart

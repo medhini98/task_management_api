@@ -1,0 +1,32 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0, "y": 0, "width": 12, "height": 6,
+      "properties": {
+        "title": "ECS Service CPU (%)",
+        "region": "ap-south-1",
+        "view": "timeSeries",
+        "stacked": false,
+        "period": 60,
+        "metrics": [
+          [ "AWS/ECS", "CPUUtilization", "ClusterName", "taskapi-cluster", "ServiceName", "taskapi-service", { "stat": "Average" } ]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 0, "width": 12, "height": 6,
+      "properties": {
+        "title": "ECS Service Memory (%)",
+        "region": "ap-south-1",
+        "view": "timeSeries",
+        "stacked": false,
+        "period": 60,
+        "metrics": [
+          [ "AWS/ECS", "MemoryUtilization", "ClusterName", "taskapi-cluster", "ServiceName", "taskapi-service", { "stat": "Average" } ]
+        ]
+      }
+    }
+  ]
+}

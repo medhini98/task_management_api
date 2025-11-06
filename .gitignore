@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.env
+.venv/
+venv/
+ENV/
+env/
+build/
+dist/
+*.log
+
+# Mac & system files
+.DS_Store
+.idea/
+.vscode/
+
+# Local configs
+*.sqlite3
+*.db
+*.db-journal
+
+# Docker
+*.pid
+*.pid.lock
+docker-compose.override.yml
+**/docker-compose.override.yml
+.env.docker
+
+# AWS credentials or secrets
+aws_credentials.json
+aws_keys.txt
+
+# Alembic
+alembic/versions/__pycache__/
+
+# Ignore any keys in YAML accidentally left behind
+*.key
+*.pem

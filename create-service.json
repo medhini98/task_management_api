@@ -1,0 +1,18 @@
+{
+  "cluster": "taskapi-cluster",
+  "serviceName": "taskapi-service",
+  "taskDefinition": "taskapi-task",
+  "desiredCount": 1,
+  "launchType": "FARGATE",
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+    "subnet-05cf30203f9dc5f1f",
+    "subnet-02d0e0cb95158624c",
+    "subnet-029a56244ab62aba3"
+],
+      "securityGroups": ["sg-06aa1314ef93fbb93"],
+      "assignPublicIp": "ENABLED"
+    }
+  }
+}

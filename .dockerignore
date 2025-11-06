@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.pytype/
+.pyright/
+
+# Envs & OS
+.venv/
+env/
+venv/
+.DS_Store
+
+# Git/IDE
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Local data
+uploaded_files/
+test_files/

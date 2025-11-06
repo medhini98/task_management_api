@@ -1,0 +1,85 @@
+{
+  "family": "taskapi-task",
+  "taskRoleArn": "arn:aws:iam::763383189399:role/taskapiTaskRole",
+  "executionRoleArn": "arn:aws:iam::763383189399:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "512",
+  "memory": "1024",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "volumes": [],
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "763383189399.dkr.ecr.ap-south-1.amazonaws.com/taskapi-app:latest",
+      "cpu": 0,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "command": [
+        "bash",
+        "-lc",
+        "alembic upgrade head && python data_db.py && uvicorn main:app --host 0.0.0.0 --port 8000"
+      ],
+      "environment": [
+        {
+          "name": "AWS_S3_PREFIX",
+          "value": "attachments/"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "ap-south-1"
+        },
+        {
+          "name": "DATABASE_URL",
+          "value": "sqlite:////tmp/task.db"
+        },
+        {
+          "name": "AWS_S3_BUCKET",
+          "value": "taskapi-medhini-dev"
+        },
+        {
+          "name": "AUTO_CREATE_TABLES",
+          "value": "true"
+        },
+        {
+          "name": "ENVIRONMENT",
+          "value": "prod"
+        },
+        {
+          "name": "STORAGE_BACKEND",
+          "value": "s3"
+        },
+        {
+          "name": "PRESIGNED_EXPIRES_SECONDS",
+          "value": "900"
+        },
+        {
+          "name": "DEBUG",
+          "value": "false"
+        }
+      ],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/taskapi",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "systemControls": []
+    }
+  ]
+}
