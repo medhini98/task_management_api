@@ -8,8 +8,9 @@ This section documents the implementation and verification of the following comp
 4. **Deploy to AWS Lambda or ECS Fargate**
 5. **Implement CloudWatch logging**
 6. **Set up basic monitoring dashboard**
+7. **Deploy to AWS EKS (Kubernetes)**
 
-Each part builds on the existing Task API to make it production-ready -  adding secure file handling, cloud-based storage, containerized deployment, serverless scaling via ECS Fargate, centralized logging through CloudWatch, and live monitoring dashboards for performance visibility.
+Each part builds on the existing Task API to make it production-ready — adding secure file handling, cloud-based storage, containerized deployment, serverless scaling via ECS Fargate and Kubernetes on EKS, centralized logging through CloudWatch, and live monitoring dashboards for performance visibility.
 
 ## Overview:
 
@@ -20,6 +21,7 @@ This exercise transformed the Task API from a local prototype into a cloud-deplo
 - AWS ECS Fargate deployment
 - CloudWatch logging for observability
 - A monitoring dashboard to track system health
+- Horizontal Pod Autoscaling and cost-efficient cleanup on EKS  
 
 ---
 
@@ -64,6 +66,11 @@ aws_docker_fastapi-TaskAPI/
 │   └── puppy-png-34503.png
 ├── uploaded_files/
 │   └── <uploaded local test files>
+├── k8s/
+│   ├── deployment-ec2.yaml
+│   ├── service-ec2.yaml
+│   ├── hpa-ec2.yaml
+│   └── assets/ (deployment & cleanup screenshots)
 ├── Dockerfile
 ├── docker-compose.yml
 ├── dashboard.json
@@ -457,16 +464,32 @@ The above command sends 100 sequential requests to the /healthz endpoint to gene
 
 ---
 
+## 7. Deploy to EKS (Kubernetes Manifests)
+
+The [`k8s/`](./k8s) folder contains all manifests used to deploy the **Task API** on AWS EKS.  
+It includes:
+
+- `deployment-ec2.yaml` — Deployment manifest for running the API on an EC2 node group.  
+- `service-ec2.yaml` — LoadBalancer service exposing the app via AWS NLB (Network Load Balancer).  
+- `hpa-ec2.yaml` — Horizontal Pod Autoscaler configuration for scaling pods based on CPU usage.  
+- `assets/` — Proof screenshots (successful deployment, external IP, HPA metrics, cleanup verification).  
+- `README.md` — Step-by-step EKS deployment and cleanup guide.
+
+These resources were tested end-to-end using **ECR + EKS + CloudWatch**, validated through `/healthz` checks, autoscaling, and final cleanup to zero cost.
+
+**For a detailed step-by-step description (setup, commands, and proof screenshots), see [`k8s/README.md`](./k8s/README.md).**
+
 ##  Final Deliverables Summary
 
-| Deliverable                                   | Description                                                                                       | Status | Proof / Verification                                                                                     |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------- |
-| **File Upload/Download**                      | Added `/attachments/upload/` and `/download/` endpoints using `aiofiles` and `StreamingResponse`. | Done   | Local test successful                                                                                    |
-| **S3 Integration**                            | Implemented presigned URLs for secure file storage in AWS S3.                                      | Done   | Verified via presigned link and S3 console                                                               |
-| **Containerized Application (Dockerfile)**    | Containerized FastAPI app with a Dockerfile and entrypoint script for migrations and app startup. | Done   | Image built locally & pushed to ECR                                                                       |
-| **Deployed Application on AWS (ECS Fargate)** | Deployed containerized Task API on AWS ECS Fargate for serverless, scalable execution.            | Done   | Swagger UI accessible at [http://13.232.124.106:8000/docs](http://13.232.124.106:8000/docs)              |
-| **CloudWatch Logging**                        | Configured ECS task to stream container logs to CloudWatch using the `awslogs` driver.            | Done   | Log group `/ecs/taskapi` created; Container Insights enabled                                             |
-| **Monitoring Dashboard**                      | Created CloudWatch dashboard (`TaskAPI-Overview`) for ECS CPU and memory utilization metrics.     | Done   | Dashboard visible with live CPU (~0.18%) and Memory (~3.8%) utilization graphs                            |
+| Deliverable | Description | Status | Proof / Verification |
+|--------------|--------------|---------|----------------------|
+| **File Upload/Download** | Added `/attachments/upload/` and `/download/` endpoints using `aiofiles` and `StreamingResponse`. | ✅ Done | Local test successful |
+| **S3 Integration** | Implemented presigned URLs for secure file storage in AWS S3. | ✅ Done | Verified via presigned link and S3 console |
+| **Containerized Application (Dockerfile)** | Containerized FastAPI app with a Dockerfile and entrypoint script for migrations and app startup. | ✅ Done | Image built locally & pushed to ECR |
+| **Deployed on AWS (ECS Fargate)** | Deployed containerized Task API on AWS ECS Fargate for serverless, scalable execution. | ✅ Done | Swagger UI accessible at [http://13.232.124.106:8000/docs](http://13.232.124.106:8000/docs) |
+| **CloudWatch Logging** | Configured ECS task to stream container logs to CloudWatch using the `awslogs` driver. | ✅ Done | Log group `/ecs/taskapi` created; Container Insights enabled |
+| **Monitoring Dashboard** | Created CloudWatch dashboard (`TaskAPI-Overview`) for ECS CPU and memory utilization metrics. | ✅ Done | Dashboard visible with live CPU (~0.18%) and Memory (~3.8%) utilization graphs |
+| **EKS Deployment** | Deployed the Task API to AWS EKS using Kubernetes manifests and autoscaling configuration. | ✅ Done | Verified external IP + `/healthz` = 200 OK; cleanup confirmed via `eksctl delete cluster` |
 
 ---
 
@@ -480,6 +503,8 @@ The above command sends 100 sequential requests to the /healthz endpoint to gene
 | **boto3** | 1.35.x | AWS SDK for S3 integration |
 | **Docker** | 27.x | Containerization engine |
 | **AWS CLI** | 2.17.x | AWS deployment & configuration |
+| **EKSCTL** | 0.216.x | EKS cluster and node group management |
+| **Kubectl** | 1.32.x | Kubernetes command-line tool |
 | **Alembic** | 1.14.x | Database migrations |
 | **SQLAlchemy** | 2.0.x | ORM for PostgreSQL models |
 | **Pydantic** | 2.8.x | Data validation and serialization |

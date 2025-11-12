@@ -42,3 +42,4 @@ alembic/versions/__pycache__/
 # Ignore any keys in YAML accidentally left behind
 *.key
 *.pem
+.DS_Store
